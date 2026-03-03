@@ -12,11 +12,34 @@ from core.state_engine import PersonaState, update_state_from_turn
 from core.twist_cards import TWIST_TRIGGER_TURNS, get_twist_card
 
 
-PERSONA_FILES = {
-    "Ali": "personas/ali_system_prompt.md",
-    "Sofie": "personas/sofie_system_prompt.md",
-    "Mika": "personas/mika_system_prompt.md",
-}
+def _discover_persona_files(personas_dir: str = "personas") -> dict[str, str]:
+    # Local imports to avoid relying on top-of-file imports (file has UTF-8 BOM).
+    import re
+    from pathlib import Path
+
+    persona_files: dict[str, str] = {}
+    for path in sorted(Path(personas_dir).glob("*_system_prompt.md")):
+        display_name = None
+        try:
+            first_line = path.read_text(encoding="utf-8").splitlines()[0].strip()
+            m = re.match(r"^#\s*(.+?)\s+-\s+System Prompt", first_line)
+            if m:
+                display_name = m.group(1).strip()
+        except Exception:
+            display_name = None
+
+        if not display_name:
+            display_name = path.stem.replace("_system_prompt", "").replace("_", " ").title()
+
+        persona_files[display_name] = path.as_posix()
+
+    if not persona_files:
+        raise ValueError("Ingen persona system prompts fundet i ./personas (forventer *_system_prompt.md).")
+
+    return persona_files
+
+
+PERSONA_FILES = _discover_persona_files()
 
 LEARNING_GOALS = [
     "Alliance",
@@ -313,15 +336,16 @@ def build_ui():
             )
 
         with gr.Row():
+            default_persona = next(iter(PERSONA_FILES.keys()))
             persona = gr.Dropdown(
                 choices=list(PERSONA_FILES.keys()),
-                value="Ali",
+                value=default_persona,
                 label="Persona",
                 info="Vælg hvilken karakter du vil træne med.",
             )
             scenario = gr.Dropdown(
-                choices=get_scenario_labels("Ali"),
-                value=_default_scenario_label("Ali"),
+                choices=get_scenario_labels(default_persona),
+                value=_default_scenario_label(default_persona),
                 label="Scenarie",
                 info="Vælg den konkrete situation for samtalen.",
             )
@@ -365,9 +389,7 @@ def build_ui():
                 info="Gælder kun når speed round er slået til.",
             )
 
-        scenario_brief = gr.Markdown(
-            value=format_scenario_brief("Ali", get_scenario("Ali", _default_scenario_label("Ali")))
-        )
+        scenario_brief = gr.Markdown(value=format_scenario_brief(default_persona, get_scenario(default_persona, _default_scenario_label(default_persona))))
         twist_panel = gr.Markdown(value="Twist: Ingen aktiv twist endnu.")
 
         start_btn = gr.Button("Start session")

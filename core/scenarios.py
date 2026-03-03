@@ -95,15 +95,33 @@ SCENARIOS = {
 }
 
 
+def _default_scenario(persona_name: str) -> dict:
+    return {
+        "label": "Generisk foerste moede",
+        "context": f"Du moeder {persona_name} i en foerste samtale i et professionelt rum.",
+        "backstory": "I kender ikke hinanden endnu. Personaen forventer at blive vurderet hurtigt.",
+        "today_goal": "Skab kontakt, rammesaet samtalen, og lav et lille naeste skridt.",
+        "risk_triggers": "Uklare rammer, moraliserende tone, for mange sporgsmaal for hurtigt.",
+        "hidden_layer": "Personaen tester autenticitet og vil se om du holder ro og tydelighed.",
+        "initial_state": {"trust": 30, "stress": 60, "shame": 50, "hope": 40, "control_loss": 60},
+    }
+
+
 def get_scenario_labels(persona_name: str) -> list[str]:
-    return [s["label"] for s in SCENARIOS.get(persona_name, [])]
+    labels = [s["label"] for s in SCENARIOS.get(persona_name, [])]
+    if labels:
+        return labels
+    return [_default_scenario(persona_name)["label"]]
 
 
 def get_scenario(persona_name: str, scenario_label: str) -> dict:
-    for scenario in SCENARIOS.get(persona_name, []):
+    scenarios = SCENARIOS.get(persona_name, [])
+    for scenario in scenarios:
         if scenario["label"] == scenario_label:
             return deepcopy(scenario)
-    return deepcopy(SCENARIOS[persona_name][0])
+    if scenarios:
+        return deepcopy(scenarios[0])
+    return deepcopy(_default_scenario(persona_name))
 
 
 def format_scenario_brief(persona_name: str, scenario: dict) -> str:
